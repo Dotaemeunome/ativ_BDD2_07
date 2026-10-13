@@ -1,0 +1,564 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+
+namespace GerenciadorProjetos
+{
+    public class Tarefa
+    {
+        private int id;
+        private string titulo;
+        private string descricao;
+        private int prioridade;
+        private string status;
+        private DateTime dataCriacao;
+        private DateTime dataConclusao;
+
+        public int Id { get { return id; } set { id = value; } }
+        public string Titulo { get { return titulo; } set { titulo = value; } }
+        public string Descricao { get { return descricao; } set { descricao = value; } }
+        public int Prioridade { get { return prioridade; } set { prioridade = value; } }
+        public string Status { get { return status; } private set { status = value; } }
+        public DateTime DataCriacao { get { return dataCriacao; } private set { dataCriacao = value; } }
+        public DateTime DataConclusao { get { return dataConclusao; } private set { dataConclusao = value; } }
+
+        public Tarefa(int id, string titulo, string descricao, int prioridade)
+        {
+            if (prioridade < 1 || prioridade > 3)
+                throw new ArgumentException("A prioridade deve ser 1, 2 ou 3.");
+
+            this.id = id;
+            this.titulo = titulo;
+            this.descricao = descricao;
+            this.prioridade = prioridade;
+            status = "Aberta";
+            dataCriacao = DateTime.Now;
+            dataConclusao = DateTime.MinValue;
+        }
+
+        public void concluir()
+        {
+            if (Status == "Aberta")
+            {
+                Status = "Fechada";
+                DataConclusao = DateTime.Now;
+            }
+        }
+
+        public void cancelar()
+        {
+            if (Status == "Aberta")
+            {
+                Status = "Cancelada";
+                DataConclusao = DateTime.MinValue;
+            }
+        }
+
+        public void reabrir()
+        {
+            if (Status == "Fechada" || Status == "Cancelada")
+            {
+                Status = "Aberta";
+                DataConclusao = DateTime.MinValue;
+            }
+        }
+
+        public override string ToString()
+        {
+            string prioridadeTexto = Prioridade == 1 ? "Alta" : Prioridade == 2 ? "Média" : "Baixa";
+            string conclusao = DataConclusao == DateTime.MinValue
+                ? "Não concluída"
+                : DataConclusao.ToString("dd/MM/yyyy HH:mm");
+
+            return string.Format(
+                "ID: {0} | {1} | Prioridade: {2} | Status: {3} | Criada: {4} | Conclusão: {5}",
+                Id, Titulo, prioridadeTexto, Status,
+                DataCriacao.ToString("dd/MM/yyyy HH:mm"), conclusao);
+        }
+
+        public override bool Equals(object obj)
+        {
+            Tarefa outra = obj as Tarefa;
+            return outra != null && Id == outra.Id;
+        }
+
+        public override int GetHashCode()
+        {
+            return Id.GetHashCode();
+        }
+    }
+
+    public class Projeto
+    {
+        private int id;
+        private string nome;
+        private List<Tarefa> tarefas;
+
+        public int Id { get { return id; } set { id = value; } }
+        public string Nome { get { return nome; } set { nome = value; } }
+        public IReadOnlyList<Tarefa> Tarefas { get { return tarefas.AsReadOnly(); } }
+
+        public Projeto(int id, string nome)
+        {
+            this.id = id;
+            this.nome = nome;
+            tarefas = new List<Tarefa>();
+        }
+
+        public void adicionarTarefa(Tarefa t)
+        {
+            if (t != null && !tarefas.Contains(t))
+                tarefas.Add(t);
+        }
+
+        public bool removerTarefa(Tarefa t)
+        {
+            return t != null && tarefas.Remove(t);
+        }
+
+        public Tarefa buscarTarefa(Tarefa t)
+        {
+            if (t == null)
+                return null;
+
+            return tarefas.FirstOrDefault(tarefa => tarefa.Id == t.Id);
+        }
+
+        public List<Tarefa> tarefasPorStatus(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s))
+                return new List<Tarefa>();
+
+            return tarefas
+                .Where(t => t.Status.Equals(s.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        public List<Tarefa> tarefasPorPrioridade(int p)
+        {
+            return tarefas.Where(t => t.Prioridade == p).ToList();
+        }
+
+        public int totalAbertas()
+        {
+            return tarefasPorStatus("Aberta").Count;
+        }
+
+        public int totalFechadas()
+        {
+            return tarefasPorStatus("Fechada").Count;
+        }
+
+        public int TotalCanceladas()
+        {
+            return tarefasPorStatus("Cancelada").Count;
+        }
+
+        public override string ToString()
+        {
+            return string.Format(
+                "Projeto {0} - {1} | Tarefas: {2} | Abertas: {3} | Fechadas: {4} | Canceladas: {5}",
+                Id, Nome, tarefas.Count, totalAbertas(), totalFechadas(), TotalCanceladas());
+        }
+
+        public override bool Equals(object obj)
+        {
+            Projeto outro = obj as Projeto;
+            return outro != null && Id == outro.Id;
+        }
+
+        public override int GetHashCode()
+        {
+            return Id.GetHashCode();
+        }
+    }
+
+    public class Projetos
+    {
+        private List<Projeto> itens;
+
+        public Projetos()
+        {
+            itens = new List<Projeto>();
+        }
+
+        public bool adicionar(Projeto p)
+        {
+            if (p == null || itens.Contains(p))
+                return false;
+
+            itens.Add(p);
+            return true;
+        }
+
+        public bool remover(Projeto p)
+        {
+            if (p == null || p.Tarefas.Count > 0)
+                return false;
+
+            return itens.Remove(p);
+        }
+
+        public Projeto buscar(Projeto p)
+        {
+            if (p == null)
+                return null;
+
+            return itens.FirstOrDefault(projeto => projeto.Id == p.Id);
+        }
+
+        public List<Projeto> listar()
+        {
+            return new List<Projeto>(itens);
+        }
+    }
+
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            Projetos projetos = new Projetos();
+            int opcao;
+
+            do
+            {
+                ExibirMenu();
+                opcao = LerInteiro("Escolha uma opção: ");
+                Console.WriteLine();
+
+                switch (opcao)
+                {
+                    case 0:
+                        Console.WriteLine("Saindo do sistema...");
+                        break;
+                    case 1:
+                        AdicionarProjeto(projetos);
+                        break;
+                    case 2:
+                        PesquisarProjeto(projetos);
+                        break;
+                    case 3:
+                        RemoverProjeto(projetos);
+                        break;
+                    case 4:
+                        AdicionarTarefa(projetos);
+                        break;
+                    case 5:
+                        AlterarStatus(projetos, "concluir");
+                        break;
+                    case 6:
+                        AlterarStatus(projetos, "cancelar");
+                        break;
+                    case 7:
+                        AlterarStatus(projetos, "reabrir");
+                        break;
+                    case 8:
+                        ListarTarefasProjeto(projetos);
+                        break;
+                    case 9:
+                        FiltrarProjeto(projetos);
+                        break;
+                    case 10:
+                        FiltrarTodosProjetos(projetos);
+                        break;
+                    case 11:
+                        ResumoGeral(projetos);
+                        break;
+                    default:
+                        Console.WriteLine("Opção inválida!");
+                        break;
+                }
+
+                if (opcao != 0)
+                {
+                    Console.WriteLine("\nPressione ENTER para continuar...");
+                    Console.ReadLine();
+                }
+            } while (opcao != 0);
+        }
+
+        private static void ExibirMenu()
+        {
+            Console.Clear();
+            Console.WriteLine("================ GERENCIADOR DE PROJETOS ================");
+            Console.WriteLine("0. Sair");
+            Console.WriteLine("1. Adicionar projeto");
+            Console.WriteLine("2. Pesquisar projeto");
+            Console.WriteLine("3. Remover projeto");
+            Console.WriteLine("4. Adicionar tarefa em projeto");
+            Console.WriteLine("5. Concluir tarefa");
+            Console.WriteLine("6. Cancelar tarefa");
+            Console.WriteLine("7. Reabrir tarefa");
+            Console.WriteLine("8. Listar tarefas de um projeto");
+            Console.WriteLine("9. Filtrar tarefas em um projeto");
+            Console.WriteLine("10. Filtrar tarefas em todos os projetos");
+            Console.WriteLine("11. Resumo geral");
+            Console.WriteLine("==========================================================");
+        }
+
+        private static void AdicionarProjeto(Projetos projetos)
+        {
+            int id = LerInteiro("ID do projeto: ");
+            string nome = LerTexto("Nome do projeto: ");
+
+            if (projetos.adicionar(new Projeto(id, nome)))
+                Console.WriteLine("Projeto adicionado com sucesso!");
+            else
+                Console.WriteLine("Erro: já existe um projeto com esse ID.");
+        }
+
+        private static void PesquisarProjeto(Projetos projetos)
+        {
+            Projeto projeto = LocalizarProjeto(projetos);
+            if (projeto == null)
+                return;
+
+            Console.WriteLine(projeto);
+            Console.WriteLine("\nTarefas por status:");
+            ExibirTarefas(projeto.tarefasPorStatus("Aberta"), "Abertas");
+            ExibirTarefas(projeto.tarefasPorStatus("Fechada"), "Fechadas");
+            ExibirTarefas(projeto.tarefasPorStatus("Cancelada"), "Canceladas");
+        }
+
+        private static void RemoverProjeto(Projetos projetos)
+        {
+            Projeto projeto = LocalizarProjeto(projetos);
+            if (projeto == null)
+                return;
+
+            if (projeto.Tarefas.Count > 0)
+            {
+                Console.WriteLine("O projeto não pode ser removido porque possui tarefas.");
+                return;
+            }
+
+            if (projetos.remover(projeto))
+                Console.WriteLine("Projeto removido com sucesso!");
+            else
+                Console.WriteLine("Não foi possível remover o projeto.");
+        }
+
+        private static void AdicionarTarefa(Projetos projetos)
+        {
+            Projeto projeto = LocalizarProjeto(projetos);
+            if (projeto == null)
+                return;
+
+            int id = LerInteiro("ID da tarefa: ");
+            if (projeto.buscarTarefa(new Tarefa(id, "", "", 1)) != null)
+            {
+                Console.WriteLine("Já existe uma tarefa com esse ID neste projeto.");
+                return;
+            }
+
+            string titulo = LerTexto("Título: ");
+            string descricao = LerTexto("Descrição: ");
+            int prioridade = LerPrioridade();
+
+            projeto.adicionarTarefa(new Tarefa(id, titulo, descricao, prioridade));
+            Console.WriteLine("Tarefa adicionada com sucesso!");
+        }
+
+        private static void AlterarStatus(Projetos projetos, string operacao)
+        {
+            Projeto projeto = LocalizarProjeto(projetos);
+            if (projeto == null)
+                return;
+
+            Tarefa tarefa = LocalizarTarefa(projeto);
+            if (tarefa == null)
+                return;
+
+            string statusAntes = tarefa.Status;
+            if (operacao == "concluir") tarefa.concluir();
+            if (operacao == "cancelar") tarefa.cancelar();
+            if (operacao == "reabrir") tarefa.reabrir();
+
+            if (statusAntes == tarefa.Status)
+                Console.WriteLine("A operação não é válida para o status atual da tarefa.");
+            else
+                Console.WriteLine("Status alterado para: " + tarefa.Status);
+        }
+
+        private static void ListarTarefasProjeto(Projetos projetos)
+        {
+            Projeto projeto = LocalizarProjeto(projetos);
+            if (projeto == null)
+                return;
+
+            Console.WriteLine(projeto);
+            ExibirTarefas(projeto.Tarefas.ToList(), "Todas as tarefas");
+        }
+
+        private static void FiltrarProjeto(Projetos projetos)
+        {
+            Projeto projeto = LocalizarProjeto(projetos);
+            if (projeto == null)
+                return;
+
+            List<Tarefa> tarefas = LerFiltro(projeto);
+            ExibirTarefas(tarefas, "Resultado do filtro");
+        }
+
+        private static void FiltrarTodosProjetos(Projetos projetos)
+        {
+            int tipo = LerInteiro("Filtrar por (1-Status / 2-Prioridade): ");
+            List<Tarefa> resultado = new List<Tarefa>();
+
+            if (tipo == 1)
+            {
+                string status = LerStatus();
+                foreach (Projeto projeto in projetos.listar())
+                {
+                    List<Tarefa> tarefas = projeto.tarefasPorStatus(status);
+                    ExibirTarefasComProjeto(tarefas, projeto);
+                    resultado.AddRange(tarefas);
+                }
+            }
+            else if (tipo == 2)
+            {
+                int prioridade = LerPrioridade();
+                foreach (Projeto projeto in projetos.listar())
+                {
+                    List<Tarefa> tarefas = projeto.tarefasPorPrioridade(prioridade);
+                    ExibirTarefasComProjeto(tarefas, projeto);
+                    resultado.AddRange(tarefas);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Tipo de filtro inválido.");
+                return;
+            }
+
+            Console.WriteLine("Total encontrado: " + resultado.Count);
+        }
+
+        private static void ResumoGeral(Projetos projetos)
+        {
+            List<Projeto> lista = projetos.listar();
+            int abertas = 0;
+            int fechadas = 0;
+            int canceladas = 0;
+
+            foreach (Projeto projeto in lista)
+            {
+                abertas += projeto.totalAbertas();
+                fechadas += projeto.totalFechadas();
+                canceladas += projeto.TotalCanceladas();
+            }
+
+            double percentual = abertas == 0 ? 0 : (double)fechadas / abertas * 100;
+
+            Console.WriteLine("================ RESUMO GERAL ================");
+            Console.WriteLine("Quantidade de projetos: " + lista.Count);
+            Console.WriteLine("Tarefas abertas: " + abertas);
+            Console.WriteLine("Tarefas fechadas: " + fechadas);
+            Console.WriteLine("Tarefas canceladas: " + canceladas);
+            Console.WriteLine("Total de tarefas: " + (abertas + fechadas + canceladas));
+            Console.WriteLine("% concluídas em relação às abertas: " + percentual.ToString("F2", CultureInfo.CurrentCulture) + "%");
+        }
+
+        private static List<Tarefa> LerFiltro(Projeto projeto)
+        {
+            int tipo = LerInteiro("Filtrar por (1-Status / 2-Prioridade): ");
+            if (tipo == 1)
+                return projeto.tarefasPorStatus(LerStatus());
+            if (tipo == 2)
+                return projeto.tarefasPorPrioridade(LerPrioridade());
+
+            Console.WriteLine("Tipo de filtro inválido.");
+            return new List<Tarefa>();
+        }
+
+        private static void ExibirTarefas(List<Tarefa> tarefas, string titulo)
+        {
+            Console.WriteLine("\n--- " + titulo + " (" + tarefas.Count + ") ---");
+            if (tarefas.Count == 0)
+            {
+                Console.WriteLine("Nenhuma tarefa encontrada.");
+                return;
+            }
+
+            foreach (Tarefa tarefa in tarefas)
+            {
+                Console.WriteLine(tarefa);
+                Console.WriteLine("  Descrição: " + tarefa.Descricao);
+            }
+        }
+
+        private static void ExibirTarefasComProjeto(List<Tarefa> tarefas, Projeto projeto)
+        {
+            foreach (Tarefa tarefa in tarefas)
+                Console.WriteLine("Projeto " + projeto.Id + " - " + projeto.Nome + " | " + tarefa);
+        }
+
+        private static Projeto LocalizarProjeto(Projetos projetos)
+        {
+            int id = LerInteiro("ID do projeto: ");
+            Projeto projeto = projetos.buscar(new Projeto(id, ""));
+            if (projeto == null)
+                Console.WriteLine("Projeto não encontrado.");
+            return projeto;
+        }
+
+        private static Tarefa LocalizarTarefa(Projeto projeto)
+        {
+            int id = LerInteiro("ID da tarefa: ");
+            Tarefa tarefa = projeto.buscarTarefa(new Tarefa(id, "", "", 1));
+            if (tarefa == null)
+                Console.WriteLine("Tarefa não encontrada.");
+            return tarefa;
+        }
+
+        private static string LerStatus()
+        {
+            while (true)
+            {
+                Console.Write("Status (1-Aberta / 2-Fechada / 3-Cancelada): ");
+                string entrada = Console.ReadLine();
+                if (entrada == "1") return "Aberta";
+                if (entrada == "2") return "Fechada";
+                if (entrada == "3") return "Cancelada";
+                Console.WriteLine("Status inválido.");
+            }
+        }
+
+        private static int LerPrioridade()
+        {
+            while (true)
+            {
+                int prioridade = LerInteiro("Prioridade (1-Alta / 2-Média / 3-Baixa): ");
+                if (prioridade >= 1 && prioridade <= 3)
+                    return prioridade;
+                Console.WriteLine("Prioridade inválida.");
+            }
+        }
+
+        private static int LerInteiro(string mensagem)
+        {
+            int valor;
+            while (true)
+            {
+                Console.Write(mensagem);
+                if (int.TryParse(Console.ReadLine(), out valor))
+                    return valor;
+                Console.WriteLine("Digite um número inteiro válido.");
+            }
+        }
+
+        private static string LerTexto(string mensagem)
+        {
+            while (true)
+            {
+                Console.Write(mensagem);
+                string texto = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(texto))
+                    return texto.Trim();
+                Console.WriteLine("Este campo não pode ficar vazio.");
+            }
+        }
+    }
+}
